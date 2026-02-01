@@ -1,0 +1,11 @@
+openai
+python-dotenv
+pytest
+streamlit
+langgraph
+langchain-openai
+pydantic
+scikit-learn
+plotly
+numpy
+pandas
