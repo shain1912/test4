@@ -23,23 +23,52 @@ class SemanticAnalyzer:
         vectors = self.embeddings.embed_documents(texts)
         return np.array(vectors)
 
-    def perform_clustering(self, vectors: np.ndarray, n_clusters: int = 3) -> np.ndarray:
-        """Performs K-Means clustering."""
-        if len(vectors) < n_clusters:
-            n_clusters = max(1, len(vectors))
+    def perform_clustering(self, vectors: np.ndarray, min_clusters: int = 3, max_clusters: int = 8) -> np.ndarray:
+        """Performs K-Means clustering with automatic K selection using Silhouette Score."""
+        from sklearn.metrics import silhouette_score
         
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init='auto')
-        return kmeans.fit_predict(vectors)
+        best_k = min_clusters
+        best_score = -1
+        best_labels = None
+        
+        # If data is too small, just use min_clusters
+        if len(vectors) < min_clusters + 2:
+            kmeans = KMeans(n_clusters=min(len(vectors), min_clusters), random_state=42, n_init='auto')
+            return kmeans.fit_predict(vectors)
+
+        # Iterate to find optimal K
+        for k in range(min_clusters, min(max_clusters + 1, len(vectors))):
+            kmeans = KMeans(n_clusters=k, random_state=42, n_init='auto')
+            labels = kmeans.fit_predict(vectors)
+            score = silhouette_score(vectors, labels)
+            
+            if score > best_score:
+                best_score = score
+                best_k = k
+                best_labels = labels
+        
+        print(f"DEBUG: Optimal Clusters (K) = {best_k} (Silhouette Score: {best_score:.3f})")
+        return best_labels
 
     def reduce_dimensions(self, vectors: np.ndarray, n_components: int = 2) -> np.ndarray:
-        """Reduces dimensions to 2D or 3D using t-SNE."""
+        """Reduces dimensions to 2D or 3D using t-SNE with robust parameters."""
         if len(vectors) < n_components:
-             # Fallback for very small data
             return np.zeros((len(vectors), n_components))
         
-        # Perplexity must be less than n_samples
-        perplexity = min(30, len(vectors) - 1)
-        tsne = TSNE(n_components=n_components, perplexity=perplexity, random_state=42, init='random')
+        # Perplexity heuristic: closely related to number of nearest neighbors
+        # For small datasets (<100), perplexity between 5 and 30 is good.
+        # We make it dynamic based on data size.
+        n_samples = len(vectors)
+        perplexity = min(30, max(5, n_samples // 4))
+        
+        # Increase iterations for better stability
+        tsne = TSNE(
+            n_components=n_components, 
+            perplexity=perplexity, 
+            random_state=42, 
+            init='pca', 
+            learning_rate='auto'
+        )
         return tsne.fit_transform(vectors)
 
     def generate_topic_labels(self, df: pd.DataFrame, text_col: str, cluster_col: str) -> Dict[int, str]:
@@ -48,21 +77,30 @@ class SemanticAnalyzer:
         unique_clusters = sorted(df[cluster_col].unique())
         
         for cluster_id in unique_clusters:
-            # Get samples from this cluster
-            samples = df[df[cluster_col] == cluster_id][text_col].head(10).tolist()
+            # Get samples from this cluster (increase sample size for better context)
+            samples = df[df[cluster_col] == cluster_id][text_col].head(15).tolist()
             text_dump = "\n".join([f"- {s}" for s in samples])
             
             prompt = f"""
-            Analyze the following list of urban design issues/feedback and generate a concise, 2-3 word category tag that represents the common theme.
+            You are an expert Urban Analyst. 
+            Below are complaints/feedback from citizens about a specific urban issue in Busan.
+            Identify the **single core theme** that binds them together.
+            
+            Key attributes to look for:
+            - Location (e.g., Seomyeon, Haeundae)
+            - Incident Type (e.g., Broken lights, Trash, Accessibility)
+            
+            Output strictly a Short Tag (max 3 words). 
+            Example: "Seomyeon Night Safety", "Station Accessibility", "Cafe Street Trash"
             
             Feedback Samples:
             {text_dump}
             
-            Format: Just the tag. No extra text.
+            Tag:
             """
             
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            labels[cluster_id] = response.content.strip()
+            labels[cluster_id] = response.content.strip().replace('"', '')
             
         return labels
 
@@ -70,7 +108,7 @@ class SemanticAnalyzer:
         """Main pipeline: Embed -> Cluster -> t-SNE -> Auto-Label."""
         if df.empty or text_column not in df.columns:
             return df
-
+            
         # 1. Clean Data
         df = df[df[text_column].notna() & (df[text_column] != "")].copy()
         texts = df[text_column].tolist()
@@ -81,12 +119,8 @@ class SemanticAnalyzer:
         # 2. Embeddings
         vectors = self.generate_embeddings(texts)
         
-        # 3. Clustering 
-        # Heuristic: sqrt(N/2) usually works fine for small N
-        n_clusters = max(2, int(np.sqrt(len(texts)/2)))
-        n_clusters = min(n_clusters, 8) # Cap at 8 clusters
-            
-        clusters = self.perform_clustering(vectors, n_clusters=n_clusters)
+        # 3. Clustering (Auto-tuned)
+        clusters = self.perform_clustering(vectors, min_clusters=3, max_clusters=8)
         df['cluster'] = clusters
         
         # 4. t-SNE (2D or 3D)

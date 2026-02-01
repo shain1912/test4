@@ -18,7 +18,7 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize DB
-init_db()
+# init_db() # Disabled to prevent wiping data on reload
 
 st.set_page_config(page_title="부산 걷기 좋은 도시 - AI 인터뷰어", page_icon="🏙️", layout="wide")
 
@@ -42,46 +42,54 @@ with tab1:
     # Initialize Graph
     if "bot_graph" not in st.session_state:
         if api_key:
-            st.session_state.bot_graph = BusanDesignGraph(api_key)
+            st.session_state.bot_graph = BusanDesignGraph(api_key=api_key)
             # Add initial greeting
             greeting = "안녕하세요! 부산의 걷기 좋은 도시 만들기에 참여해주셔서 감사합니다. 지금 계신 곳은 어디인가요?"
             st.session_state.messages.append(AIMessage(content=greeting))
         else:
             st.error("API Key가 설정되지 않았습니다. .env 파일을 확인해주세요.")
 
-    # Display Chat History
-    for msg in st.session_state.messages:
-        role = "user" if isinstance(msg, HumanMessage) else "assistant"
+    # --- Chat Interface ---
+    for message in st.session_state.messages:
+        role = "user" if isinstance(message, HumanMessage) else "assistant"
         with st.chat_message(role):
-            st.write(msg.content)
+            st.markdown(message.content)
 
-    # Chat Input
-    if prompt := st.chat_input("답변을 입력해주세요..."):
-        if "bot_graph" in st.session_state:
-            # 1. Append User Message
-            st.session_state.messages.append(HumanMessage(content=prompt))
+    # Helper to process user input (text or button)
+    def process_input(user_text):
+        st.session_state.messages.append(HumanMessage(content=user_text))
+        
+        with st.spinner("AI가 응답 생성 중..."):
+            current_state = {
+                "messages": st.session_state.messages,
+                "info": st.session_state.interview_info,
+                "turn_index": st.session_state.get("turn_index", 0)
+            }
             
-            # 2. Invoke Graph (Show Spinner)
-            with st.spinner("AI가 답변을 생성 중입니다..."):
-                current_state = {
-                    "messages": st.session_state.messages,
-                    "info": st.session_state.interview_info,
-                    "topics_covered": st.session_state.topics_covered
-                }
+            try:
+                result = st.session_state.bot_graph.graph.invoke(current_state)
                 
-                try:
-                    result = st.session_state.bot_graph.graph.invoke(current_state)
-                    
-                    # 3. Update State
-                    st.session_state.messages = result["messages"]
-                    st.session_state.interview_info = result["info"]
-                    st.session_state.topics_covered = result["topics_covered"]
-                    
-                    # 4. Rerun to refresh the chat history UI
-                    st.rerun()
-                    
-                except Exception as e:
-                    st.error(f"오류 발생: {e}")
+                # Update Session State
+                st.session_state.messages = result["messages"]
+                st.session_state.interview_info = result["info"]
+                st.session_state.turn_index = result["turn_index"]
+                st.session_state.suggested_replies = result.get("suggested_replies", [])
+                
+                st.rerun()
+            except Exception as e:
+                st.error(f"오류: {e}")
+
+    # 1. Show Buttons if available
+    if "suggested_replies" in st.session_state and st.session_state.suggested_replies:
+        st.markdown("##### 답변 선택하기:")
+        cols = st.columns(len(st.session_state.suggested_replies))
+        for idx, reply in enumerate(st.session_state.suggested_replies):
+            if cols[idx].button(reply, key=f"btn_{len(st.session_state.messages)}_{idx}"):
+                process_input(reply)
+
+    # 2. Chat Input (Always available for fallback or open-ended)
+    if prompt := st.chat_input("답변을 입력해주세요..."):
+        process_input(prompt)
 
     st.markdown("---")
     if st.button("인터뷰 종료 및 저장 (Finish & Save)"):
@@ -101,8 +109,16 @@ with tab1:
 with tab2:
     st.header("실시간 데이터 분석 (Real-time Analysis)")
     
-    df = pd.DataFrame(get_all_interviews())
+    # 1. Load Data
+    try:
+        from src.db import get_all_interviews
+        data = get_all_interviews()
+        df = pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"데이터 로드 중 오류 발생: {e}")
+        st.stop()
     
+    # 2. Check Empty
     if df.empty:
         st.info("아직 수집된 데이터가 없습니다. 인터뷰 탭에서 의견을 남겨주세요!")
     else:
@@ -110,20 +126,26 @@ with tab2:
         col1, col2, col3 = st.columns(3)
         col1.metric("총 인터뷰 수", len(df))
         col2.metric("최근 수집", df['timestamp'].iloc[0] if 'timestamp' in df.columns else "-")
-        col3.metric("주요 이슈 유형", df['issue'].nunique() if 'issue' in df.columns else 0)
+        
+        avg_severity = "-"
+        if 'severity_score' in df.columns:
+            val = pd.to_numeric(df['severity_score'], errors='coerce').mean()
+            if not pd.isna(val):
+                avg_severity = f"{val:.1f}/4.0"
+        col3.metric("평균 심각도", avg_severity)
 
         st.divider()
 
-        # Basic Charts
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("📍 지역별 분포")
-            if 'location' in df.columns:
-                st.bar_chart(df['location'].value_counts())
-        with c2:
-            st.subheader("🚧 해결책 제안 유형")
-            if 'solution_type' in df.columns:
-                st.bar_chart(df['solution_type'].value_counts())
+        # Charts
+        col_c1, col_c2 = st.columns(2)
+        with col_c1:
+            st.subheader("🏙️ 지역별 분포")
+            if 'location_bucket' in df.columns:
+                st.bar_chart(df['location_bucket'].value_counts())
+        with col_c2:
+            st.subheader("🚨 카테고리별 분포")
+            if 'primary_category' in df.columns:
+                st.bar_chart(df['primary_category'].value_counts())
 
         # Semantic Analysis Section
         st.divider()
@@ -132,60 +154,64 @@ with tab2:
         if st.button("심층 분석 실행 (Run Semantic Analysis)"):
             with st.spinner("AI가 데이터를 분석하여 3D 지도를 그리고 있습니다..."):
                 analyzer = SemanticAnalyzer(api_key=api_key)
-                # Compute 3D t-SNE
-                result_df = analyzer.process_and_analyze(df, text_column='issue', n_dimensions=3)
+                
+                # Compute 3D t-SNE using 'issue_text' (Requesting 3 dimensions explicitly)
+                result_df = analyzer.process_and_analyze(df, text_column='issue_text', n_dimensions=3)
+                
+                # Store result in session state
                 st.session_state['analysis_result'] = result_df
                 st.success("분석 완료!")
 
         if 'analysis_result' in st.session_state:
             result_df = st.session_state['analysis_result']
 
-            if 'z' in result_df.columns:
-                tab_viz1, tab_viz2, tab_viz3 = st.tabs(["3D 의미 지도", "주제 계층 구조", "이슈 흐름도"])
+            if 'x' in result_df.columns:
+                # 1. 3D Chart
+                st.markdown("#### 🌐 3D Semantic Space")
+                fig_3d = px.scatter_3d(
+                    result_df, 
+                    x='x', y='y', z='z',
+                    color='topic_label',
+                    hover_data=['issue_text', 'location_bucket', 'severity_score'],
+                    title="시민 의견 3D 군집 지도",
+                    template="plotly_dark",
+                    height=600
+                )
+                fig_3d.update_traces(marker=dict(size=5, opacity=0.8, line=dict(width=0)))
+                fig_3d.update_layout(showlegend=False, margin=dict(l=0, r=0, b=0, t=0))
+                st.plotly_chart(fig_3d, use_container_width=True)
+
+                # 2. Cluster Detail Cards
+                st.divider()
+                st.header("📑 상세 토픽 리스트 (Topic List)")
+                st.info("💡 위 3D 지도에 표시된 색상별 토픽의 상세 내용입니다.")
                 
-                with tab_viz1:
-                    st.markdown("#### 🌐 3D Semantic Space")
-                    st.caption("마우스로 회전/확대/축소하여 군집을 확인하세요.")
-                    fig_3d = px.scatter_3d(
-                        result_df, 
-                        x='x', y='y', z='z',
-                        color='topic_label',
-                        hover_data=['issue', 'location', 'solution_detail'],
-                        title="시민 의견 3D 군집 지도",
-                        template="plotly_dark",
-                        height=600
-                    )
-                    fig_3d.update_traces(marker=dict(size=5, opacity=0.8, line=dict(width=0)))
-                    st.plotly_chart(fig_3d, use_container_width=True)
+                unique_labels = sorted(result_df['topic_label'].unique())
+                cols = st.columns(2)
+                
+                for idx, label in enumerate(unique_labels):
+                    with cols[idx % 2]:
+                        cluster_data = result_df[result_df['topic_label'] == label]
+                        count = len(cluster_data)
+                        avg_sev = cluster_data['severity_score'].mean() if 'severity_score' in cluster_data.columns else 0
+                        
+                        with st.container(border=True):
+                            st.subheader(f"{label}")
+                            m1, m2 = st.columns(2)
+                            m1.metric("의견 수", f"{count}건")
+                            m2.metric("평균 심각도", f"{avg_sev:.1f}")
+                            
+                            st.markdown("**주요 키워드 & 예시:**")
+                            sample_issues = cluster_data['issue_text'].sample(min(2, count)).tolist()
+                            for issue in sample_issues:
+                                st.caption(f"- {issue}")
 
-                with tab_viz2:
-                    st.markdown("#### ☀️ Topic Hierarchy (Sunburst)")
-                    st.caption("주제(Topic) -> 해결책 유형(Solution) -> 구체적 장소(Location)의 비율을 보여줍니다.")
-                    # Handle missing values for cleaner chart
-                    clean_df = result_df.fillna("Unknown")
-                    fig_sun = px.sunburst(
-                        clean_df, 
-                        path=['topic_label', 'solution_type', 'location'],
-                        values='id', # Just count
-                        title="주제별 계층 분포",
-                        height=600
-                    )
-                    st.plotly_chart(fig_sun, use_container_width=True)
-
-                with tab_viz3:
-                    st.markdown("#### 🌊 Parallel Categories (Flow)")
-                    st.caption("지역(Location)에서 발생한 문제가 어떤 가치(Value)와 연결되는지 보여줍니다.")
-                    fig_flow = px.parallel_categories(
-                        result_df,
-                        dimensions=['location', 'topic_label', 'primary_value'],
-                        title="지역 - 이슈 토픽 - 가치 연결 흐름",
-                        height=500
-                    )
-                    st.plotly_chart(fig_flow, use_container_width=True)
-
+                st.divider()
+                st.subheader("📊 주제별 데이터 분포")
+                st.bar_chart(result_df['topic_label'].value_counts())
             else:
-                st.warning("3D 좌표 생성에 실패했습니다. 데이터가 너무 적을 수 있습니다.")
-        
-        # Raw Data
+                st.warning("분석 결과가 충분하지 않습니다.")
+
+        st.divider()
         with st.expander("전체 데이터 로그 보기"):
             st.dataframe(df)

@@ -6,20 +6,20 @@ from datetime import datetime
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'interviews.db')
 
 def init_db():
+    # Force reset for the new schema
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+    # Simple migration: drop table if exists
+    c.execute('DROP TABLE IF EXISTS interviews')
     c.execute('''
-        CREATE TABLE IF NOT EXISTS interviews (
+        CREATE TABLE interviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT,
-            location TEXT,
-            urban_element TEXT,
-            issue TEXT,
-            solution_type TEXT,
-            solution_detail TEXT,
-            solution_logic TEXT,
-            primary_value TEXT,
-            willingness_to_pay TEXT,
+            issue_text TEXT,
+            severity_score INTEGER,
+            primary_category TEXT,
+            location_bucket TEXT,
+            evidence_span TEXT,
             raw_log TEXT
         )
     ''')
@@ -29,52 +29,31 @@ def init_db():
 def insert_interview(data):
     """
     Inserts interview data into the database.
-    Accepts a dictionary 'data' which can be flat (InterviewInfo style) 
-    or nested (old style support).
+    Expects data matching the new InterviewInfo structure.
     """
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Try flat access first, fall back to nested if needed (or just keys)
-    location = data.get('location', '')
-    urban_element = data.get('urban_element', '')
-    issue = data.get('issue', '')
+    # Extract fields safely
+    issue_text = data.get('issue_text', '')
+    severity_score = data.get('severity_score', 0)
+    primary_category = data.get('primary_category', '')
+    location_bucket = data.get('location_bucket', '')
+    evidence_span = data.get('evidence_span', '')
     
-    # Handle Solution (Support both flat and nested 'proposed_solution')
-    if 'proposed_solution' in data and isinstance(data['proposed_solution'], dict):
-        sol = data['proposed_solution']
-        solution_type = sol.get('type', '')
-        solution_detail = sol.get('detail', '')
-        solution_logic = sol.get('user_logic', '')
-    else:
-        solution_type = data.get('solution_type', '')
-        solution_detail = data.get('solution_detail', '')
-        solution_logic = data.get('solution_logic', '')
-    
-    # Handle Value (Support both flat and nested 'value_analysis')
-    if 'value_analysis' in data and isinstance(data['value_analysis'], dict):
-        val = data['value_analysis']
-        primary_value = val.get('primary_value', '')
-        willingness_to_pay = val.get('willingness_to_pay', '')
-    else:
-        primary_value = data.get('primary_value', '')
-        willingness_to_pay = data.get('willingness_to_pay', '')
-    
-    # Save full data blob as raw_log for debugging
-    raw_log = json.dumps(data, ensure_ascii=False) 
+    # Save full data blob as raw_log
+    raw_log = json.dumps(data, ensure_ascii=False) # Store everything just in case
 
     c.execute('''
         INSERT INTO interviews (
-            timestamp, location, urban_element, issue, 
-            solution_type, solution_detail, solution_logic, 
-            primary_value, willingness_to_pay, raw_log
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            timestamp, issue_text, severity_score, primary_category, 
+            location_bucket, evidence_span, raw_log
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ''', (
-        timestamp, location, urban_element, issue,
-        solution_type, solution_detail, solution_logic,
-        primary_value, willingness_to_pay, raw_log
+        timestamp, issue_text, severity_score, primary_category,
+        location_bucket, evidence_span, raw_log
     ))
     
     conn.commit()

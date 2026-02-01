@@ -1,6 +1,7 @@
 import os
 import json
 from typing import TypedDict, Annotated, List, Optional
+from enum import Enum
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
@@ -9,54 +10,78 @@ from pydantic import BaseModel, Field
 
 # --- Schema Definitions ---
 
+class PrimaryCategory(str, Enum):
+    SAFETY = "안전 (Safety)"
+    ACCESSIBILITY = "접근성 (Accessibility)"
+    WAYFINDING = "길찾기 (Wayfinding)"
+    COMFORT = "쾌적성/미관 (Comfort)"
+    OTHER = "기타 (Other)"
+
 class InterviewInfo(BaseModel):
-    """Structured information extracted from the interview."""
-    location: Optional[str] = Field(None, description="Detailed location mentioned")
-    urban_element: Optional[str] = Field(None, description="Specific facility or element (e.g., Road, Bus Stop)")
-    issue: Optional[str] = Field(None, description="Core problem described")
-    solution_type: Optional[str] = Field(None, description="Type of solution (Infrastructure/Policy/Service)")
-    solution_detail: Optional[str] = Field(None, description="Details of the proposed solution")
-    solution_logic: Optional[str] = Field(None, description="Why the user thinks this solves the problem")
-    primary_value: Optional[str] = Field(None, description="Safety/Convenience/Aesthetics/etc")
-    willingness_to_pay: Optional[str] = Field(None, description="User's willingness to accept trade-offs (High/Medium/Low)")
+    """Structured information extracted from the fixed 4-turn interview."""
+    issue_text: Optional[str] = Field(None, description="The user's original complaint text")
+    severity_score: Optional[int] = Field(None, description="Severity of the issue 0-4 (0=Not bad, 4=Very severe)")
+    primary_category: Optional[PrimaryCategory] = Field(None, description="Category of the issue")
+    location_bucket: Optional[str] = Field(None, description="Rough location bucket (e.g., 'Seomyeon Intersection')")
+    evidence_span: Optional[str] = Field(None, description="Evidence text from user input supporting the analysis")
 
 class BotResponse(BaseModel):
     """The structured response from the interviewer bot."""
     response: str = Field(description="The natural language response to the user.")
-    current_topic: str = Field(description="The specific topic/state of this question (e.g., 'ask_location', 'ask_issue', 'ask_solution_tradeoff').")
-    info_update: Optional[InterviewInfo] = Field(None, description="Any new or updated information extracted from the latest turn.")
+    suggested_replies: List[str] = Field(default_factory=list, description="List of suggested replies to show as buttons.")
+    info_update: Optional[InterviewInfo] = Field(None, description="Any new or updated information extracted.")
+    next_turn: int = Field(..., description="The next turn index to proceed to.")
+    early_exit: bool = Field(False, description="True if user wants to quit or is annoyed.")
 
 class AgentState(TypedDict):
     """The tracking state of the interview graph."""
     messages: Annotated[List[BaseMessage], add_messages]
     info: InterviewInfo
-    topics_covered: List[str]
+    turn_index: int  # Tracks the strict flow: 0 -> 1 -> 2 -> 3 -> 4 (End)
+    suggested_replies: List[str]  # For UI buttons
 
-# --- Prompt ---
+# --- Prompts ---
 
-SYSTEM_PROMPT = """
-당신은 '부산 걷기 좋은 도시 만들기' 프로젝트의 전문 질적 연구원입니다.
-시민들과 1:1 채팅을 통해 보행 환경에 대한 **구체적 경험(Fact)**과 **감정(Feeling)**을 수집합니다.
+PROMPT_TEMPLATES = {
+    0: """
+    [Turn 1: Issue Collection]
+    User has just started.
+    Goal: Ask them about the most uncomfortable thing they experienced while walking in Busan.
+    Style: Polite, welcoming, but direct.
+    """,
+    1: """
+    [Turn 2: Severity Measurement]
+    User has provided an issue: "{issue_text}"
+    Goal: Ask them to rate the severity on a scale of 0 to 4.
+    0 = 별로 심각하지 않음
+    4 = 매우 심각하고 위험함
+    Output: Provide suggested_replies ["0 (별로)", "1 (조금)", "2 (보통)", "3 (심각)", "4 (매우 심각)"].
+    """,
+    2: """
+    [Turn 3: Categorization]
+    User has rated severity: {severity_score}.
+    Goal: Ask them to categorize this issue.
+    Options: 안전, 접근성, 길찾기, 쾌적성, 기타.
+    Output: Provide suggested_replies ["안전", "접근성", "길찾기", "쾌적성", "기타"].
+    """,
+    3: """
+    [Turn 4: Location Identification]
+    User Category: {primary_category}.
+    Goal: Ask for the location.
+    Style: Ask for a rough location (e.g., "Near Seomyeon Station") so they feel their privacy is safe.
+    """,
+    4: """
+    [Ending]
+    All data collected.
+    Goal: Thank the user and tell them their opinion has been recorded as valuable data.
+    """
+}
 
-# 현재 수집된 정보:
-{info}
-
-# 이미 다룬 주제 (중복 질문 금지):
-{topics_covered}
-
-# 인터뷰 진행 가이드
-1. **위치 확인**: 어디서 걷고 있는지 묻습니다. (이미 알면 묻지 않음)
-2. **이슈 발굴**: 불편한 점, 위험한 점을 구체적으로 묻습니다.
-3. **심층 탐구 (5 Whys)**: 문제의 원인과 구체적 상황을 파고듭니다.
-4. **해결책 및 검증**: 사용자가 생각하는 등을 묻고, 그 대안의 트레이드오프(비용, 불편함 등)에 대해 질문합니다.
-
-# 필수 지침 (Strict Rules)
-- **중복 금지**: '이미 다룬 주제'에 있는 내용은 절대 다시 묻지 마세요.
-- **단일 질문**: 한 번에 질문은 하나만 하세요.
-- **중립성**: 답을 유도하지 마세요.
-- **기계적 공감 금지**: "불편하셨겠네요" 대신 구체적 상황을 물으세요.
-
-너의 응답은 반드시 주어진 JSON 포맷(response, current_topic, info_update)을 따라야 해.
+COMMON_INSTRUCTIONS = """
+You are a 'Public Design Researcher' AI.
+Extract structured data into `info_update`.
+Follow the `turn_index` progression strictly.
+If the user says 'quit', 'stop', 'annoying', set `early_exit=True`.
 """
 
 # --- Node Logic ---
@@ -66,7 +91,7 @@ class BusanDesignGraph:
         if api_key:
             os.environ["OPENAI_API_KEY"] = api_key
         
-        self.llm = ChatOpenAI(model="gpt-4o", temperature=0.7)
+        self.llm = ChatOpenAI(model="gpt-4o", temperature=0.3) # Lower temp for consistent flow
         self.structured_llm = self.llm.with_structured_output(BotResponse)
         
         # Build Graph
@@ -78,35 +103,46 @@ class BusanDesignGraph:
         self.graph = builder.compile()
 
     def interviewer_node(self, state: AgentState):
-        # 1. Prepare accumulated info for context
-        current_info = state.get("info", InterviewInfo()).dict()
-        covered = state.get("topics_covered", [])
+        current_turn = state.get("turn_index", 0)
+        current_info = state.get("info", InterviewInfo())
         
-        # 2. Format System Prompt
-        sys_msg = SystemMessage(content=SYSTEM_PROMPT.format(
-            info=json.dumps(current_info, indent=2, ensure_ascii=False),
-            topics_covered=covered
-        ))
+        # Determine Prompt based on NEXT turn (predicting what to ask NEXT)
+        # But actually, we are engaging based on PREVIOUS input.
+        # Let's align: 
+        # State turn_index 0: Initial state. Bot asks Q1.
+        # State turn_index 1: User answered Q1. Bot analyzes A1, asks Q2.
         
-        # 3. Invoke LLM
-        # We pass full message history. 
-        # Note: We must ensure messages are strictly correctly formatted.
-        messages = [sys_msg] + state["messages"]
+        # Construct Prompt
+        turn_prompt = PROMPT_TEMPLATES.get(current_turn, PROMPT_TEMPLATES[4])
+        
+        # Fill dynamic slots
+        prompt_content = turn_prompt.format(
+            issue_text=current_info.issue_text or "General Issue",
+            severity_score=current_info.severity_score if current_info.severity_score is not None else "?",
+            primary_category=current_info.primary_category or "Unknown"
+        )
+        
+        full_system_prompt = f"{COMMON_INSTRUCTIONS}\n\nCurrent Turn: {current_turn}\n{prompt_content}"
+        
+        # Invoke LLM
+        messages = [SystemMessage(content=full_system_prompt)] + state["messages"]
         result: BotResponse = self.structured_llm.invoke(messages)
         
-        # 4. Update State
-        # We need to merge new info into old info
-        new_info = state.get("info", InterviewInfo())
+        # Update State
+        new_info = current_info.copy()
         if result.info_update:
             update_dict = result.info_update.dict(exclude_unset=True, exclude_none=True)
             new_info = new_info.copy(update=update_dict)
             
-        new_topic = result.current_topic
-        if new_topic not in covered:
-            covered.append(new_topic)
+        # Determine next turn
+        # If early exit, jump to end (e.g., 99)
+        next_turn_val = result.next_turn
+        if result.early_exit:
+            next_turn_val = 99
             
         return {
             "messages": [AIMessage(content=result.response)],
             "info": new_info,
-            "topics_covered": covered
+            "turn_index": next_turn_val,
+            "suggested_replies": result.suggested_replies
         }
