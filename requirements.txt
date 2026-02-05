@@ -4,8 +4,11 @@ pytest
 streamlit
 langgraph
 langchain-openai
+langchain-community
 pydantic
 scikit-learn
 plotly
 numpy
 pandas
+pyyaml
+chromadb

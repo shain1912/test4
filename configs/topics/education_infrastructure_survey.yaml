@@ -1,0 +1,121 @@
+meta:
+  id: education_infrastructure_survey
+  name:
+    ko: 교육 인프라 설문조사
+    en: Education Infrastructure Survey
+  description:
+    ko: 각 지역구의 교육 인프라에 대한 의견을 수집합니다.
+    en: Collecting opinions on education infrastructure in each district.
+interview_mode: field_based
+categories:
+- id: primary_education
+  label:
+    ko: 초등 교육
+    en: Primary Education
+  keywords:
+  - 초등학교
+  - 기초 교육
+- id: secondary_education
+  label:
+    ko: 중등 교육
+    en: Secondary Education
+  keywords:
+  - 중학교
+  - 고등학교
+  - 중등
+- id: higher_education
+  label:
+    ko: 고등 교육
+    en: Higher Education
+  keywords:
+  - 대학교
+  - 고등 교육
+- id: vocational_training
+  label:
+    ko: 직업 교육
+    en: Vocational Training
+  keywords:
+  - 직업 학교
+  - 기술 교육
+required_fields:
+- id: district
+  name:
+    ko: 지역구
+    en: District
+  description:
+    ko: 귀하가 속한 지역구를 입력해주세요.
+    en: Please enter your district.
+- id: infrastructure_quality
+  name:
+    ko: 인프라 품질
+    en: Infrastructure Quality
+  description:
+    ko: 교육 인프라의 품질을 평가해주세요.
+    en: Please rate the quality of the education infrastructure.
+  type: scale
+  scale:
+    min: 1
+    max: 5
+    labels:
+      ko:
+      - 매우 나쁨
+      - 나쁨
+      - 보통
+      - 좋음
+      - 매우 좋음
+      en:
+      - Very Poor
+      - Poor
+      - Average
+      - Good
+      - Very Good
+- id: main_feedback
+  name:
+    ko: 주요 피드백
+    en: Main Feedback
+  description:
+    ko: 교육 인프라에 대한 주요 의견을 적어주세요.
+    en: Please provide your main feedback on the education infrastructure.
+system_prompt:
+  role:
+    ko: 설문 응답을 분석하여 교육 인프라 개선에 필요한 정보를 제공합니다.
+    en: Analyze survey responses to provide insights needed for improving education
+      infrastructure.
+  interview_style:
+    ko: '## 인터뷰 스타일
+
+      - 자연스러운 대화처럼 진행하세요
+
+      - 응답자의 말을 경청하고, 그들이 언급한 내용을 따라가세요
+
+      - 모호하거나 흥미로운 답변에는 후속 질문(probing)을 하세요
+
+      - 필요한 정보가 자연스럽게 나오면 별도로 물어보지 않아도 됩니다'
+    en: '## Interview Style
+
+      - Conduct the interview like a natural conversation
+
+      - Listen actively and follow up on what the respondent mentions
+
+      - Use probing questions for vague or interesting responses
+
+      - If needed information comes up naturally, you don''t need to ask separately'
+  extraction_rules:
+    ko: '## 정보 추출 규칙
+
+      - 응답에서 자연스럽게 언급된 정보를 추출하세요
+
+      - 모든 필수 정보가 수집되면 인터뷰를 마무리하세요'
+    en: '## Information Extraction Rules
+
+      - Extract information naturally mentioned in responses
+
+      - Wrap up the interview once all required information is collected'
+greeting:
+  ko: 안녕하세요! 귀하의 지역구 교육 인프라에 대한 소중한 의견을 듣고 싶습니다. 참여해 주셔서 감사합니다.
+  en: Hello! We would love to hear your valuable opinions on the education infrastructure
+    in your district. Thank you for participating.
+closing:
+  ko: 소중한 의견을 나눠주셔서 정말 감사합니다. 말씀해주신 내용은 큰 도움이 될 것입니다.
+  en: Thank you so much for sharing your valuable feedback. Your input will be very
+    helpful.

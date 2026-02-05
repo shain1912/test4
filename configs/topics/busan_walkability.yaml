@@ -1,0 +1,207 @@
+# Topic configuration: Busan Walkable City
+# 부산 걷기 좋은 도시 만들기 인터뷰 설정
+
+meta:
+  id: "busan_walkability"
+  name:
+    ko: "부산 걷기 좋은 도시 만들기"
+    en: "Busan Walkable City"
+  description:
+    ko: "부산의 보행 환경에 대한 시민 의견을 수집합니다."
+    en: "Collecting citizen feedback on Busan's walking environment."
+
+categories:
+  - id: "safety"
+    label:
+      ko: "안전"
+      en: "Safety"
+  - id: "accessibility"
+    label:
+      ko: "접근성"
+      en: "Accessibility"
+  - id: "wayfinding"
+    label:
+      ko: "길찾기"
+      en: "Wayfinding"
+  - id: "comfort"
+    label:
+      ko: "쾌적성/미관"
+      en: "Comfort"
+  - id: "other"
+    label:
+      ko: "기타"
+      en: "Other"
+
+turns:
+  - id: 0
+    name: "greeting"
+    goal:
+      ko: "사용자에게 인사하고 부산에서 걸을 때 불편했던 점을 물어보세요."
+      en: "Greet the user and ask about uncomfortable experiences while walking in Busan."
+    extracts: []
+    suggested_replies: []
+    next_turn: 1
+    prompt_template:
+      ko: |
+        [턴 1: 이슈 수집]
+        사용자가 방금 시작했습니다.
+        목표: 부산에서 걸을 때 가장 불편했던 점을 물어보세요.
+        스타일: 정중하고 환영하는 태도로, 하지만 직접적으로.
+      en: |
+        [Turn 1: Issue Collection]
+        User has just started.
+        Goal: Ask them about the most uncomfortable thing they experienced while walking in Busan.
+        Style: Polite, welcoming, but direct.
+
+  - id: 1
+    name: "severity"
+    goal:
+      ko: "심각도를 0-4 척도로 물어보세요."
+      en: "Ask for severity rating on a 0-4 scale."
+    extracts:
+      - "issue_text"
+    suggested_replies:
+      - label:
+          ko: "0 (별로)"
+          en: "0 (Not bad)"
+        value: "0"
+      - label:
+          ko: "1 (조금)"
+          en: "1 (A little)"
+        value: "1"
+      - label:
+          ko: "2 (보통)"
+          en: "2 (Moderate)"
+        value: "2"
+      - label:
+          ko: "3 (심각)"
+          en: "3 (Serious)"
+        value: "3"
+      - label:
+          ko: "4 (매우 심각)"
+          en: "4 (Very serious)"
+        value: "4"
+    next_turn: 2
+    prompt_template:
+      ko: |
+        [턴 2: 심각도 측정]
+        사용자가 이슈를 제시했습니다: "{issue_text}"
+        목표: 심각도를 0-4 척도로 평가해달라고 요청하세요.
+        0 = 별로 심각하지 않음
+        4 = 매우 심각하고 위험함
+        출력: suggested_replies ["0 (별로)", "1 (조금)", "2 (보통)", "3 (심각)", "4 (매우 심각)"]를 제공하세요.
+      en: |
+        [Turn 2: Severity Measurement]
+        User has provided an issue: "{issue_text}"
+        Goal: Ask them to rate the severity on a scale of 0 to 4.
+        0 = Not bad at all
+        4 = Very serious and dangerous
+        Output: Provide suggested_replies ["0 (Not bad)", "1 (A little)", "2 (Moderate)", "3 (Serious)", "4 (Very serious)"].
+
+  - id: 2
+    name: "category"
+    goal:
+      ko: "이슈를 카테고리로 분류해달라고 요청하세요."
+      en: "Ask to categorize the issue."
+    extracts:
+      - "severity_score"
+    suggested_replies:
+      - label:
+          ko: "안전"
+          en: "Safety"
+        value: "safety"
+      - label:
+          ko: "접근성"
+          en: "Accessibility"
+        value: "accessibility"
+      - label:
+          ko: "길찾기"
+          en: "Wayfinding"
+        value: "wayfinding"
+      - label:
+          ko: "쾌적성"
+          en: "Comfort"
+        value: "comfort"
+      - label:
+          ko: "기타"
+          en: "Other"
+        value: "other"
+    next_turn: 3
+    prompt_template:
+      ko: |
+        [턴 3: 카테고리 분류]
+        사용자가 심각도를 평가했습니다: {severity_score}.
+        목표: 이 이슈를 카테고리로 분류해달라고 요청하세요.
+        옵션: 안전, 접근성, 길찾기, 쾌적성, 기타.
+        출력: suggested_replies ["안전", "접근성", "길찾기", "쾌적성", "기타"]를 제공하세요.
+      en: |
+        [Turn 3: Categorization]
+        User has rated severity: {severity_score}.
+        Goal: Ask them to categorize this issue.
+        Options: Safety, Accessibility, Wayfinding, Comfort, Other.
+        Output: Provide suggested_replies ["Safety", "Accessibility", "Wayfinding", "Comfort", "Other"].
+
+  - id: 3
+    name: "location"
+    goal:
+      ko: "위치를 물어보세요."
+      en: "Ask for the location."
+    extracts:
+      - "primary_category"
+    suggested_replies: []
+    next_turn: 4
+    prompt_template:
+      ko: |
+        [턴 4: 위치 확인]
+        사용자 카테고리: {primary_category}.
+        목표: 위치를 물어보세요.
+        스타일: 대략적인 위치를 물어보세요 (예: "서면역 근처") 사용자가 프라이버시를 보호받는다고 느끼도록.
+      en: |
+        [Turn 4: Location Identification]
+        User Category: {primary_category}.
+        Goal: Ask for the location.
+        Style: Ask for a rough location (e.g., "Near Seomyeon Station") so they feel their privacy is safe.
+
+  - id: 4
+    name: "closing"
+    goal:
+      ko: "사용자에게 감사 인사를 하고 인터뷰를 마무리하세요."
+      en: "Thank the user and close the interview."
+    extracts:
+      - "location_bucket"
+    suggested_replies: []
+    next_turn: 99
+    is_final: true
+    prompt_template:
+      ko: |
+        [마무리]
+        모든 데이터가 수집되었습니다.
+        목표: 사용자에게 감사를 표하고 의견이 소중한 데이터로 기록되었음을 알려주세요.
+      en: |
+        [Ending]
+        All data collected.
+        Goal: Thank the user and tell them their opinion has been recorded as valuable data.
+
+system_prompt:
+  role:
+    ko: "당신은 '공공디자인 연구원' AI입니다."
+    en: "You are a 'Public Design Researcher' AI."
+  instructions:
+    ko: |
+      구조화된 데이터를 `info_update`에 추출하세요.
+      `turn_index` 진행을 엄격하게 따르세요.
+      사용자가 '그만', '종료', 'quit', 'stop', '짜증'이라고 하면 `early_exit=True`로 설정하세요.
+    en: |
+      Extract structured data into `info_update`.
+      Follow the `turn_index` progression strictly.
+      If the user says 'quit', 'stop', 'annoying', set `early_exit=True`.
+  exit_keywords:
+    - "그만"
+    - "종료"
+    - "quit"
+    - "stop"
+    - "짜증"
+
+greeting:
+  ko: "안녕하세요! 부산의 걷기 좋은 도시 만들기에 참여해주셔서 감사합니다. 부산에서 걸을 때 가장 불편했던 점은 무엇인가요?"
+  en: "Hello! Thank you for participating in making Busan a more walkable city. What was the most uncomfortable experience you had while walking in Busan?"

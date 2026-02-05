@@ -1,7 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "mcp__filesystem__directory_tree"
+      "mcp__filesystem__directory_tree",
+      "Bash(python:*)",
+      "Bash(dir:*)",
+      "WebSearch",
+      "Bash(.venv\\\\Scripts\\\\pip install:*)",
+      "Bash(\".venv/Scripts/pip.exe\" install langchain-community faiss-cpu)",
+      "Bash(\".venv/Scripts/python.exe\" -m py_compile src/knowledge_base.py)",
+      "Bash(\".venv/Scripts/python.exe\" -c \"from src.knowledge_base import KnowledgeBase; print\\(''Import OK''\\)\")",
+      "Bash(\".venv/Scripts/pip.exe\" install chromadb)",
+      "Bash(\".venv/Scripts/pip.exe\" show chromadb)",
+      "Bash(\".venv/Scripts/python.exe\" -c \"from src.knowledge_base import KnowledgeBase; print\\(''ChromaDB Import OK''\\)\")"
     ]
   }
 }

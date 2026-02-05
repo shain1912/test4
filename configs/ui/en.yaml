@@ -1,0 +1,61 @@
+# English UI strings
+
+page:
+  title: "AI Interview Platform"
+  icon: "🏙️"
+
+tabs:
+  interview: "💬 Interview (Chat)"
+  dashboard: "📊 Analysis Dashboard"
+
+interview:
+  header: "Citizen Interview (AI)"
+  description: "{topic_description}"
+  input_placeholder: "Enter your response..."
+  finish_button: "Finish & Save Interview"
+  suggested_replies_label: "##### Select your answer:"
+  saving_spinner: "Saving data..."
+  save_success: "Your valuable feedback has been saved! Check the dashboard for results."
+  ai_spinner: "AI is generating response..."
+  api_key_error: "API Key is not set. Please check your .env file."
+
+dashboard:
+  header: "Real-time Data Analysis"
+  data_load_error: "Error loading data: {error}"
+  no_data: "No data collected yet. Please leave your feedback in the Interview tab!"
+  total_interviews: "Total Interviews"
+  recent_collection: "Recent Collection"
+  avg_severity: "Average Severity"
+  location_distribution: "🏙️ Location Distribution"
+  category_distribution: "🚨 Category Distribution"
+  semantic_analysis_header: "🧠 AI Semantic Analysis (Cluster)"
+  run_analysis_button: "Run Semantic Analysis"
+  analysis_spinner: "AI is analyzing data and creating 3D map..."
+  analysis_complete: "Analysis complete!"
+  semantic_space_title: "#### 🌐 3D Semantic Space"
+  chart_title: "Citizen Feedback 3D Cluster Map"
+  topic_list_header: "📑 Detailed Topic List"
+  topic_list_info: "💡 Detailed content of each colored topic shown in the 3D map above."
+  opinion_count: "Opinion Count"
+  opinion_count_unit: "items"
+  avg_severity_label: "Average Severity"
+  keywords_examples: "**Keywords & Examples:**"
+  topic_distribution: "📊 Topic Distribution"
+  analysis_insufficient: "Analysis results are insufficient."
+  full_data_log: "View Full Data Log"
+
+cli:
+  bot_name: "InterviewBot"
+  header: |
+    =========================================
+    {topic_name} Interview Chatbot (LangGraph Version)
+    Type 'quit', 'q', or 'exit' to stop.
+    =========================================
+  user_prompt: "You: "
+  data_saved: "Interview data saved: {data}"
+  interrupted: "Interrupted."
+  error: "Error: {error}"
+  api_key_error: "Error: OPENAI_API_KEY not found in .env file."
+
+errors:
+  general: "Error: {error}"

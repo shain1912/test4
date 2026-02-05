@@ -1,0 +1,5 @@
+active_topic: busan_walkability_v2
+language: ko
+llm:
+  model: gpt-4o
+  temperature: 0.4
