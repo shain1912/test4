@@ -1,3 +1,14 @@
+---
+title: AI Interview Platform - Busan Walkability
+emoji: 🏙️
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: 1.45.1
+app_file: src/app.py
+pinned: false
+---
+
 # 🏙️ 부산 걷기 좋은 도시 만들기 - AI 대화형 평가 시스템
 
 > **"시민의 목소리를 데이터로, 데이터를 정책으로."**

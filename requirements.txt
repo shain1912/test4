@@ -1,6 +1,5 @@
 openai
 python-dotenv
-pytest
 streamlit
 langgraph
 langchain-openai
