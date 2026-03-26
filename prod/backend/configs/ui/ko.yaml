@@ -1,0 +1,62 @@
+# Korean UI strings
+# 한국어 UI 문자열
+
+page:
+  title: "AI 인터뷰 플랫폼"
+  icon: "🏙️"
+
+tabs:
+  interview: "💬 인터뷰 (Chat)"
+  dashboard: "📊 분석 대시보드 (Dashboard)"
+
+interview:
+  header: "시민 인터뷰 (AI Interview)"
+  description: "{topic_description}"
+  input_placeholder: "답변을 입력해주세요..."
+  finish_button: "인터뷰 종료 및 저장 (Finish & Save)"
+  suggested_replies_label: "##### 답변 선택하기:"
+  saving_spinner: "데이터를 저장하고 있습니다..."
+  save_success: "소중한 의견이 저장되었습니다! 대시보드에서 결과를 확인해보세요."
+  ai_spinner: "AI가 응답 생성 중..."
+  api_key_error: "API Key가 설정되지 않았습니다. .env 파일을 확인해주세요."
+
+dashboard:
+  header: "실시간 데이터 분석 (Real-time Analysis)"
+  data_load_error: "데이터 로드 중 오류 발생: {error}"
+  no_data: "아직 수집된 데이터가 없습니다. 인터뷰 탭에서 의견을 남겨주세요!"
+  total_interviews: "총 인터뷰 수"
+  recent_collection: "최근 수집"
+  avg_severity: "평균 심각도"
+  location_distribution: "🏙️ 지역별 분포"
+  category_distribution: "🚨 카테고리별 분포"
+  semantic_analysis_header: "🧠 AI 의미 분석 (Semantic Cluster)"
+  run_analysis_button: "심층 분석 실행 (Run Semantic Analysis)"
+  analysis_spinner: "AI가 데이터를 분석하여 3D 지도를 그리고 있습니다..."
+  analysis_complete: "분석 완료!"
+  semantic_space_title: "#### 🌐 3D Semantic Space"
+  chart_title: "시민 의견 3D 군집 지도"
+  topic_list_header: "📑 상세 토픽 리스트 (Topic List)"
+  topic_list_info: "💡 위 3D 지도에 표시된 색상별 토픽의 상세 내용입니다."
+  opinion_count: "의견 수"
+  opinion_count_unit: "건"
+  avg_severity_label: "평균 심각도"
+  keywords_examples: "**주요 키워드 & 예시:**"
+  topic_distribution: "📊 주제별 데이터 분포"
+  analysis_insufficient: "분석 결과가 충분하지 않습니다."
+  full_data_log: "전체 데이터 로그 보기"
+
+cli:
+  bot_name: "부산디자인봇"
+  header: |
+    =========================================
+    {topic_name} 인터뷰 챗봇 (LangGraph Version)
+    종료하려면 '종료', 'q', 'exit'를 입력하세요.
+    =========================================
+  user_prompt: "나: "
+  data_saved: "인터뷰 데이터가 저장되었습니다: {data}"
+  interrupted: "중단됨."
+  error: "오류 발생: {error}"
+  api_key_error: "Error: OPENAI_API_KEY not found in .env file."
+
+errors:
+  general: "오류: {error}"
