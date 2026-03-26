@@ -1,5 +1,0 @@
-active_topic: busan_walkability_v2
-language: ko
-llm:
-  model: gpt-5-nano
-  temperature: 0.4
